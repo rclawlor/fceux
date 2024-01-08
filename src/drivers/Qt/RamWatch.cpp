@@ -438,10 +438,19 @@ void RamWatchDialog_t::updateRamWatchDisplay(void)
 		   	{
 		   		sprintf (valStr1, "%6i", rw->val.i16);
 		   	}
-		   	else
+		   	else if (rw->type == 'u')
 		   	{
 		   		sprintf (valStr1, "%6u", rw->val.u16);
 		   	}
+			else
+			{
+				sprintf (
+					valStr1,
+					"%3u.%08llu",
+					rw->val.u16 & 0xff,
+					(((rw->val.u16 >> 8) & 0xff) * 100000000LLu) / 0xFF
+				);
+			}
 		   	sprintf (valStr2, "0x%04X", rw->val.u16);
 		   }
 		   else
@@ -747,13 +756,14 @@ void ramWatch_t::updateMem (void)
 void RamWatchDialog_t::openWatchEditWindow( ramWatch_t *rw, int mode)
 {
 	int ret, isSep = 0;
+	char disp = 0;
 	QDialog dialog(this);
 	QVBoxLayout *mainLayout, *vbox;
 	QHBoxLayout *hbox;
 	QLabel *lbl;
 	QLineEdit *addrEntry, *notesEntry;
 	QGroupBox *frame;
-	QRadioButton *signedTypeBtn, *unsignedTypeBtn;
+	QRadioButton *signedTypeBtn, *unsignedTypeBtn, *fixedTypeBtn;
 	QRadioButton *dataSize1Btn, *dataSize2Btn, *dataSize4Btn;
 	QPushButton *cancelButton, *okButton;
 
@@ -814,9 +824,11 @@ void RamWatchDialog_t::openWatchEditWindow( ramWatch_t *rw, int mode)
 
 	signedTypeBtn   = new QRadioButton( tr("Signed") );
 	unsignedTypeBtn = new QRadioButton( tr("Unsigned") );
+	fixedTypeBtn 	= new QRadioButton( tr("Fixed Point") );
 
 	vbox->addWidget( signedTypeBtn   );
 	vbox->addWidget( unsignedTypeBtn );
+	vbox->addWidget( fixedTypeBtn	 );
 
 	vbox  = new QVBoxLayout();
 	frame = new QGroupBox( tr("Data Size") );
@@ -865,6 +877,7 @@ void RamWatchDialog_t::openWatchEditWindow( ramWatch_t *rw, int mode)
 		{
 			signedTypeBtn->setEnabled(false);
 			unsignedTypeBtn->setEnabled(false);
+			fixedTypeBtn->setEnabled(false);
 			dataSize1Btn->setEnabled(false);
 			dataSize2Btn->setEnabled(false);
 			dataSize4Btn->setEnabled(false);
@@ -873,6 +886,7 @@ void RamWatchDialog_t::openWatchEditWindow( ramWatch_t *rw, int mode)
 		{
 			signedTypeBtn->setChecked( rw->type == 's' );
 			unsignedTypeBtn->setChecked( rw->type != 's' );
+			fixedTypeBtn->setChecked( rw->type != 's' );
 			dataSize1Btn->setChecked( rw->size == 1 );
 			dataSize2Btn->setChecked( rw->size == 2 );
 			dataSize4Btn->setChecked( rw->size == 4 );
@@ -882,6 +896,7 @@ void RamWatchDialog_t::openWatchEditWindow( ramWatch_t *rw, int mode)
 	{
 		signedTypeBtn->setChecked( true );
 		unsignedTypeBtn->setChecked( false );
+		fixedTypeBtn->setChecked( false );
 		dataSize1Btn->setChecked( true );
 		dataSize2Btn->setChecked( false );
 		dataSize4Btn->setChecked( false );
@@ -907,16 +922,29 @@ void RamWatchDialog_t::openWatchEditWindow( ramWatch_t *rw, int mode)
 		{
 			size = 1;
 		}	
+		
+		if ( fixedTypeBtn->isChecked() )
+		{
+			disp = 'f';
+		}
+		else if ( unsignedTypeBtn->isChecked() )
+		{
+			disp = 'u';
+		}
+		else
+		{
+			disp = 's';
+		}
 
 		if ( (rw == NULL) || mode )
 		{
 			ramWatchList.add_entry( notesEntry->text().toStdString().c_str(), 
-				addr, unsignedTypeBtn->isChecked() ? 'u' : 's', size, isSep);
+				addr, disp, size, isSep);
 		}
 		else 
 		{
 			rw->name  = notesEntry->text().toStdString();
-			rw->type  = unsignedTypeBtn->isChecked() ? 'u' : 's';
+			rw->type  = disp;
 			rw->addr  = addr;
 			rw->size  = size;
 			rw->isSep = isSep;
